@@ -18,6 +18,7 @@ import numpy    # Used for statistics
 from deap import algorithms
 from deap import base
 from deap import tools
+from levenshtein import levenshtein
 
 
 # -----------------------------------------------------------------------------
@@ -92,8 +93,16 @@ class Message(list):
 # Genetic operators
 # -----------------------------------------------------------------------------
 
-# TODO: Implement levenshtein_distance function (see Day 9 in-class exercises)
+# mplement levenshtein_distance function (see Day 9 in-class exercises)
 # HINT: Now would be a great time to implement memoization if you haven't
+
+def levenshtein_distance(message, goal_text):
+    """
+    Given a Message and a goal_text string, return the levenshtein distance
+    between the Message and the goal_text
+    """
+    return levenshtein(message, goal_text)
+
 
 def evaluate_text(message, goal_text, verbose=VERBOSE):
     """
@@ -106,6 +115,20 @@ def evaluate_text(message, goal_text, verbose=VERBOSE):
         print("{msg!s}\t[Distance: {dst!s}]".format(msg=message, dst=distance))
     return (distance, )     # Length 1 tuple, required by DEAP
 
+
+def twoPointCX(message1, message2):
+    '''
+    implements a two-point crossover of a string s1 and s2
+    '''
+    point1 = random.randint(0, min(len(message1), len(message2)))
+    point2 = random.randint(0, min(len(message1), len(message2)))
+
+    if point1 > point2:
+        message1[point2:point1], message2[point2:point1] = message2[point2:point1], message1[point2:point1]
+    else:
+        message1[point1:point2], message2[point1:point2] = message2[point1:point2], message1[point1:point2]
+
+    return message1, message2
 
 def mutate_text(message, prob_ins=0.05, prob_del=0.05, prob_sub=0.05):
     """
@@ -121,13 +144,12 @@ def mutate_text(message, prob_ins=0.05, prob_del=0.05, prob_sub=0.05):
     """
 
     if random.random() < prob_ins:
-        # TODO: Implement insertion-type mutation
-        pass
+        loc = random.randint(0, len(message.get_text())-1)
+        message.insert(loc, random.choice(VALID_CHARS))
 
-    # TODO: Also implement deletion and substitution mutations
-    # HINT: Message objects inherit from list, so they also inherit
-    #       useful list methods
-    # HINT: You probably want to use the VALID_CHARS global variable
+    if random.random() < prob_del:
+        loc = random.randint(0, len(message.get_text())-1)
+        message[loc] = random.choice(VALID_CHARS)
 
     return (message, )   # Length 1 tuple, required by DEAP
 
@@ -149,11 +171,11 @@ def get_toolbox(text):
 
     # Genetic operators
     toolbox.register("evaluate", evaluate_text, goal_text=text)
-    toolbox.register("mate", tools.cxTwoPoint)
+    toolbox.register("mate", twoPointCX)
     toolbox.register("mutate", mutate_text)
     toolbox.register("select", tools.selTournament, tournsize=3)
 
-    # NOTE: You can also pass function arguments as you define aliases, e.g.
+    #   You can also pass function arguments as you define aliases, e.g.
     #   toolbox.register("individual", Message, max_length=200)
     #   toolbox.register("mutate", mutate_text, prob_sub=0.18)
 
@@ -183,9 +205,9 @@ def evolve_string(text):
     # (See: http://deap.gel.ulaval.ca/doc/dev/api/algo.html for details)
     pop, log = algorithms.eaSimple(pop,
                                    toolbox,
-                                   cxpb=0.5,    # Prob. of crossover (mating)
+                                   cxpb=0.9,    # Prob. of crossover (mating)
                                    mutpb=0.2,   # Probability of mutation
-                                   ngen=500,    # Num. of generations to run
+                                   ngen=2000,    # Num. of generations to run
                                    stats=stats)
 
     return pop, log
